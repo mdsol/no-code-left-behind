@@ -1,4 +1,4 @@
-octokit:
+github:
 	login: 
 	oauth_token: 
   
