@@ -72,7 +72,7 @@ describe Atomic do
       Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
       a = Atomic.new(@user, @token)      
-      a.branches("mdsoul/Trance").should == @source_branches
+      a.__send__(:branches, "mdsoul/Trance").should == @source_branches
     end
   end
   
@@ -82,14 +82,14 @@ describe Atomic do
       Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       a = Atomic.new(@user, @token)
-      a.source_repo("someUser/Trance").should == "mdsoul/Trance"
+      a.__send__(:source_repo, "someUser/Trance").should == "mdsoul/Trance"
     end
     it "should return the source repository for the source repository" do
       m = mock(Octokit::Client)
       Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
       m.stub!(:repository).with("mdsoul/Trance").and_return(@source_repo)
       a = Atomic.new(@user, @token)
-      a.source_repo("mdsoul/Trance").should == "mdsoul/Trance"
+      a.__send__(:source_repo, "mdsoul/Trance").should == "mdsoul/Trance"
     end
   end
   
@@ -169,9 +169,9 @@ describe Atomic do
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
       a = Atomic.new(@user, @token)
       m.should_receive(:branches)
-      a.branches("mdsoul/Trance")
+      a.__send__(:branches, "mdsoul/Trance")
       m.should_not_receive(:branches)
-      a.branches("mdsoul/Trance")
+      a.__send__(:branches, "mdsoul/Trance")
     end
   end
 
@@ -184,9 +184,9 @@ describe Atomic do
       m.stub!(:commits).with("mdsoul/Trance", "develop").and_return(@source_commits)
       a = Atomic.new(@user, @token)
       m.should_receive(:commits).with("mdsoul/Trance", "develop")
-      a.commits("mdsoul/Trance", "develop")
+      a.__send__(:commits, "mdsoul/Trance", "develop")
       m.should_not_receive(:commits)
-      a.commits("mdsoul/Trance", "develop")
+      a.__send__(:commits, "mdsoul/Trance", "develop")
     end
   end
   
