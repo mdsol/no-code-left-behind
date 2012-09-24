@@ -15,3 +15,44 @@ RSpec.configure do |config|
   #     --seed 1234
   config.order = 'random'
 end
+
+require 'digest/sha1'
+
+def generate_commit(owner="")
+  if owner.eql?("")
+    owner = ["Harry", "Larry", "Curly", "Simon", "Sarah"].sample
+  end
+  commit_message = (0...50).map{ ('a'..'z').to_a[rand(26)] }.join
+  hashed = Digest::SHA1.hexdigest(commit_message)
+  {
+    :sha => hashed,
+    :commit => {
+      :comment_count => rand(10),
+      :tree => {
+        :sha => hashed,
+      },
+      :committer => {
+        :login => "#{owner}"
+      },
+      :message => commit_message,
+      :author => {
+        :login => "#{owner}",
+      }
+    },
+    :author => {:login => "#{owner}"},
+    :committer => {:login => "#{owner}"},
+    :url => "http://an.url.pl/#{hashed}",
+  }
+end
+
+def generate_branch(repository)
+  # generate a randomised branch
+  branch_root = ["feature/new-feature", "develop", "master", "hotfix/some-hotfix", "release/1.0"].sample
+  branch_name = "#{branch_root}_#{Time.now.strftime('%H%M%S')}"
+  sha = Digest::SHA1.hexdigest("#{branch_name}")
+  {"commit"=>
+     {"sha"=>"#{sha}",
+      "url"=>
+       "https://api.github.com/repos/#{repository}/commits/#{sha}"},
+    "name"=>branch_name}
+end
