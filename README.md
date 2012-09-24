@@ -18,8 +18,8 @@ Requirements Use Case
 4. The ex-member no longer has access to the fork (as it is still private), but still own the repository
 5. The organisation doesn't want to lose any unmerged work  
 
-Resolution
-----------
+Resolution (Nuclear)
+--------------------
 
 1. Create a mock member of the organisation 
 2. For each orphaned fork
@@ -32,3 +32,17 @@ Resolution
 		1. Create a local branch called {ex-member}\_{branch} (e.g.seeya\_master, seeya\_feature/whizzy, etc )
 		2. Push the {ex-member}\_{branch} to the mock member fork
 3. Delete the orphaned fork 
+
+Resolution (Atomic)
+-------------------
+
+As an alternative to save copying numerous numbers of (essentially) unchanged branches about, we're going to adopt a slightly different approach.
+1. Get a Listing of the Branches for the Orphaned Fork.  
+2. Get a Listing of the Branches for the Source repository. (cache this to disk)  
+	1. Compare the list of branches and dump branches only on Orphan fork to a worklist
+3. For each branch on the Orphan Repository, generate a list of the commits
+4. For each branch on the Source Repository, generate a list of the commits (cache this to disk) 
+	1. Compare the commits on both repositories to identify commits on Orphan that are not on Source 
+5. Generate a Report showing
+	1. Branches that don't exist on Source Repo
+	2. Branches that exist on both, but have uncommitted changes (back to Source repo)	 
