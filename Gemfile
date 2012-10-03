@@ -1,6 +1,7 @@
 source :rubygems
 
 gem 'git'
+gem 'grit'
 gem 'octokit'
 gem 'write_xlsx'
 
