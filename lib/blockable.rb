@@ -1,26 +1,33 @@
 require 'octokit'
 
+class ConnectError < StandardError
+end
+
 module Blockable
   
   def client
-    @@client ||= Octokit::Client.new({:login => self.login, 
+    @client ||= Octokit::Client.new({:login => self.login, 
       :oauth_token => self.token, 
       :per_page => 100,
       :auto_traversal => true  }) 
   end
   
   def login
-    @@login ||= self.get_auth.first
+    # get the login
+    @login ||= self.get_auth.first
   end
   
   def token
-    @@token ||= self.get_auth.last
+    # get the token
+    @token ||= self.get_auth.last
   end
   
   def get_auth(path="")
-    #load the authentication info and return it
+    # load the authentication info and return it
+    # TODO: Allow password auth (maybe?)
+    # TODO: Prompt if file not found
     if path == ""
-      cf_file = File.join(__FILE__, '..', 'config', 'configuration.yml')
+      cf_file = File.join(File.dirname(__FILE__), '..', 'config', 'configuration.yml')
     else
       cf_file = path 
     end
@@ -28,6 +35,8 @@ module Blockable
       config = YAML::load_file(cf_file)
       section = config['github_nuclear']
       [section['login'], section['oauth_token']]
+    else
+      raise ConnectError, "Config file not found"
     end
   end
   
