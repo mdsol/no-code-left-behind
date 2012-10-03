@@ -140,6 +140,16 @@ describe KitchenDrawer do
   #   end
   # end
   
+  describe ".clone_repository" do
+    it "creates a local clone copy of a remote repository" do
+      tmp_dir = @d.instance_variable_get("@tmplocation")
+      @d.clone_repository({:full_name => "glow-mdsol/SHAREutils",
+                            :name => "SHAREutils", 
+                            :ssh_url => "git@github.com:glow-mdsol/SHAREutils.git"})
+      File.exist?(File.join(tmp_dir, "SHAREutils", ".git")).should be_true
+    end
+  end
+  
   describe ".merge_fork" do
     it "clones the fork" do
       pending("Massive function difficult to refactor")
