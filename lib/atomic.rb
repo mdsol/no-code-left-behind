@@ -1,5 +1,6 @@
 require 'octokit'
-require 'blockable'
+
+require_relative './blockable'
 
 class FissionError < StandardError
 end
