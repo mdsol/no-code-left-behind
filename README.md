@@ -38,6 +38,15 @@ Mock Member - a stub account within the organisation with the intention of ownin
   2. The deletion of the forks is to be done by the user.  A URL to the deletion element will be displayed
   3. Deletion will only be recommended when all forks are merged
 
+### Usage
+The script can be initiated by running 
+$ ruby scripts/main.rb [forks]
+the following arguments exist:
+* -f {filename} - a newline separated list of forks to process
+* -m {mode} - what mode to run - defaults to nuclear
+* -t {timeout} - what timeout to set for git commands, please note that the api adds around 20% to shell calls
+
+
 ##Resolution (Atomic)
 
 ###Process
