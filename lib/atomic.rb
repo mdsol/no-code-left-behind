@@ -1,55 +1,45 @@
 require 'octokit'
+require 'blockable'
+
+class FissionError < StandardError
+end
 
 class Atomic
-
-  def initialize(user, token)
-    @client = Octokit::Client.new({:login => user, :oauth_token => token})
+  include Blockable
+  
+  def initialize
     @cache = {}
   end
 
+  def branches(repository)
+   self.get_branches(repository)
+  end
   
   def compare_branches(repository)
-    # compare the branches on the fork against those on the source
-    source_branches = self.branches(self.source_repo(repository))
-    fork_branches = self.branches(repository)
-    fork_branches - source_branches
+    # compare the branches on the fork against those on the source, by name and then by hash
+    source_branches = Hash[self.get_branches(self.source_repo(repository)).collect {|x| [x[:name], x]}]
+    fork_branches = Hash[self.get_branches(repository).collect {|x| [x[:name], x]}]
+    # list of branches in the fork, but not in the source
+    fork_only_branches = fork_branches.keys - source_branches.keys
+    # local only branches
+    differences = fork_branches.values.select {|x| fork_only_branches.include?(x[:name])}
+    # iterate through the matching branches, comparing by SHA
+    source_branches.each do |name, reference|
+      if fork_branches.has_key?(name)
+        if fork_branches[name][:commit][:sha] != reference[:commit][:sha]
+          differences << fork_branches[name]
+        end
+      end
+    end
+    differences
   end
   
   def compare_commits(repository, branch)
-    # compare the commits on the fork against those on the source for a branch
-    source_commits = self.commits(self.source_repo(repository), branch)
-    fork_commits = self.commits(repository, branch)
-    fork_commits - source_commits
-  end
-  
-  protected
-
-  def branches(repository)
-    unless @cache.has_key?(repository)
-      # cache the pull
-      @cache[repository] = @client.branches(repository)  
-    end
-    @cache[repository]
-  end
-
-  def commits(repository, branch)
-    unless @cache.has_key?("#{repository}_#{branch}")
-      # cache this 
-      @cache["#{repository}_#{branch}"] = @client.commits(repository, branch)
-    end
-    @cache["#{repository}_#{branch}"]
-  end
-  
-  def source_repo(repository)
-    repo = @client.repository(repository)
-    if repo[:fork] == false
-      # not a fork
-      repo[:full_name]    
-    else
-      # a fork
-      repo[:parent][:full_name]
-    end
-
+    # compare the commits on the fork against those on the source for a branch using the sha
+    source_commits = Hash[self.get_commits(self.source_repo(repository), branch).collect {|x| [x[:sha], x]}]
+    fork_commits = Hash[self.get_commits(repository, branch).collect {|x| [x[:sha], x]}]
+    fork_only_commits = fork_commits.keys - source_commits.keys
+    fork_commits.values.select {|x| fork_only_commits.include?(x[:sha])}
   end
   
 end
