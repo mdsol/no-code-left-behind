@@ -1,4 +1,8 @@
-github:
+github_atomic:
+	login: 
+	oauth_token: 
+
+github_nuclear:
 	login: 
 	oauth_token: 
   
