@@ -20,7 +20,7 @@ describe Atomic do
     @fork_branches = @source_branches.dup
     # changes for fork
     @branch_delta = [{:commit => {:sha => "6f786ba21fc1bc1cd23851a60021ff24a6b8ba64"}, :name => "feature/some_new_config"}, 
-                      {:commit => {:sha => "6f786ba21fc1bc1cd23851a60021ff24a6b8ba64"}, :name => "feature/where_am_i"}]
+                      {:commit => {:sha => "6f786ba21fc1bc1cd23851a60021ff24a6b8ba65"}, :name => "feature/where_am_i"}]
     @fork_branches.concat(@branch_delta)
     @fork_branches_upd  =  [
       {:commit => {:sha => "35f83be35aa24e83cf2a17b6644238c0db51a0c6"}, :name => "hotfix/v5.6.4-Patch2_build_53_with_fixes"}, 
@@ -30,6 +30,7 @@ describe Atomic do
       {:commit => {:sha => "8cef4109592cf4b6d0e56390643f9501507b601b"}, :name => "develop"}, 
       {:commit => {:sha => "1e52a892fedce8b4c7d7d4491c411ee104adae1f"}, :name => "master"}, 
       {:commit => {:sha => "ba14d901113a257fb09bc56474b23be32442648d"}, :name => "feature/MEF_SubModule"},
+      
       ] 
     @source_repo = {:clone_url => "https://github.com/mdsoul/Trance.git", 
                     :description => "Source code for Trance 5.6.4 - click below for more details", 
@@ -59,135 +60,84 @@ describe Atomic do
     @fork_commits = @source_commits.dup << @diff_commit
     @user = "someuser"
     @token = Digest::SHA1.hexdigest "sometoken"
+    @options = {:login => @user,
+                :oauth_token => @token,
+                :per_page => 100,
+                :auto_traversal => true,
+              }
   end
   
-  it "should pass in the user credentials" do
-    Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token})
-    m = Atomic.new(@user, @token)
-  end
-  
-  describe ".branches" do
-    it "should get a list of branches for a repo" do
-      m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
-      m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
-      a = Atomic.new(@user, @token)      
-      a.__send__(:branches, "mdsoul/Trance").should == @source_branches
-    end
-  end
-  
-  describe ".source_repo" do
-    it "should identify the source repository for the fork" do
-      m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
-      m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
-      a = Atomic.new(@user, @token)
-      a.__send__(:source_repo, "someUser/Trance").should == "mdsoul/Trance"
-    end
-    it "should return the source repository for the source repository" do
-      m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
-      m.stub!(:repository).with("mdsoul/Trance").and_return(@source_repo)
-      a = Atomic.new(@user, @token)
-      a.__send__(:source_repo, "mdsoul/Trance").should == "mdsoul/Trance"
-    end
-  end
   
   describe ".compare_branches" do
     it "should generate a list of branches on the fork, but not the source" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
       m.stub!(:branches).with("someUser/Trance").and_return(@fork_branches)
-      a = Atomic.new(@user, @token)
-      a.compare_branches("someUser/Trance").should == @branch_delta
+      a = Atomic.new
+      a.compare_branches("someUser/Trance").should =~ @branch_delta
     end
     it "with no changes return empty array" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
       m.stub!(:branches).with("someUser/Trance").and_return(@source_branches)
-      a = Atomic.new(@user, @token)
+      a = Atomic.new
       a.compare_branches("someUser/Trance").should == []
     end
     it "should generate a list of branches that have changed on the fork, but not the source" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
       m.stub!(:branches).with("someUser/Trance").and_return(@fork_branches_upd)
-      a = Atomic.new(@user, @token)
+      a = Atomic.new
       a.compare_branches("someUser/Trance").should == [@fork_branches_upd[0]]
     end
     it "should generate a list of branches that have changed on the fork, both the source and new branches" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
-      m.stub!(:branches).with("someUser/Trance").and_return(@fork_branches_upd.concat(@branch_delta))
-      a = Atomic.new(@user, @token)
-      a.compare_branches("someUser/Trance").should == [@fork_branches_upd[0]].concat(@branch_delta)
+      local_branches = @fork_branches_upd.concat(@branch_delta)
+      m.stub!(:branches).with("someUser/Trance").and_return(local_branches)
+      a = Atomic.new
+      a.compare_branches("someUser/Trance").should == @branch_delta + [@fork_branches_upd[0]]
     end
   end
 
   describe ".compare_commits" do
     it "should return an empty list for the case where the commits are the same" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:commits).with("someUser/Trance", "develop").and_return(@source_commits)
       m.stub!(:commits).with("mdsoul/Trance", "develop").and_return(@source_commits)
-      a = Atomic.new(@user, @token)
+      a = Atomic.new
       a.compare_commits("someUser/Trance", "develop").should == []
     end
     it "should return an list for the case where there are missing commits present in the fork" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:commits).with("someUser/Trance", "develop").and_return(@fork_commits)
       m.stub!(:commits).with("mdsoul/Trance", "develop").and_return(@source_commits)
-      a = Atomic.new(@user, @token)
+      a = Atomic.new
       a.compare_commits("someUser/Trance", "develop").should == [@diff_commit]
     end
     it "should return an empty list for the case where the source is ahead" do
       m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
+      Octokit::Client.should_receive(:new).with(@options).and_return(m)
       m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
       m.stub!(:commits).with("someUser/Trance", "develop").and_return(@source_commits[0..-1])
       m.stub!(:commits).with("mdsoul/Trance", "develop").and_return(@source_commits)
-      a = Atomic.new(@user, @token)
+      a = Atomic.new
       a.compare_commits("someUser/Trance", "develop").should == []
     end
   end
   
-  describe ".branches" do
-    it "should cache the lookups" do
-      m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
-      m.stub!(:branches).with("mdsoul/Trance").and_return(@source_branches)
-      a = Atomic.new(@user, @token)
-      m.should_receive(:branches)
-      a.__send__(:branches, "mdsoul/Trance")
-      m.should_not_receive(:branches)
-      a.__send__(:branches, "mdsoul/Trance")
-    end
-  end
 
-  describe ".commits" do
-    it "should cache the lookups" do
-      m = mock(Octokit::Client)
-      Octokit::Client.should_receive(:new).with({:login => @user, :oauth_token => @token}).and_return(m)
-      m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
-      m.stub!(:commits).with("someUser/Trance", "develop").and_return(@source_commits[0..-1])
-      m.stub!(:commits).with("mdsoul/Trance", "develop").and_return(@source_commits)
-      a = Atomic.new(@user, @token)
-      m.should_receive(:commits).with("mdsoul/Trance", "develop")
-      a.__send__(:commits, "mdsoul/Trance", "develop")
-      m.should_not_receive(:commits)
-      a.__send__(:commits, "mdsoul/Trance", "develop")
-    end
-  end
-  
+
 end
