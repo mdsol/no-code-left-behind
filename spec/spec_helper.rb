@@ -18,10 +18,15 @@ end
 
 require 'digest/sha1'
 
+def time_rand from = 0.0, to = Time.now
+  Time.at(from + rand * (to.to_f - from.to_f)).strftime("%FT%T%:z")
+end
+
 def generate_commit(owner="")
   if owner.eql?("")
     owner = ["Harry", "Larry", "Curly", "Simon", "Sarah"].sample
   end
+  rand_date ="2012-09-21T14:28:39-07:00"
   commit_message = (0...50).map{ ('a'..'z').to_a[rand(26)] }.join
   hashed = Digest::SHA1.hexdigest(commit_message)
   {
@@ -32,7 +37,8 @@ def generate_commit(owner="")
         :sha => hashed,
       },
       :committer => {
-        :login => "#{owner}"
+        :login => "#{owner}",
+        :date => time_rand,
       },
       :message => commit_message,
       :author => {
