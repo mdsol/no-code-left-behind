@@ -106,6 +106,17 @@ describe ForkedReport do
     end
   end  
   
+  describe ".as_yaml" do
+    it "should produce a yaml report of the differences which can be used as input to a second script" do
+      forked = ForkedReport.new("forker/SomeRepo", "mdsoul/SomeRepo")
+      forked.add_local_branches(@branch_delta)
+      yaml_repr = {"fork" => "forker/SomeRepo",
+                  "branches" => ["develop", "feature/some_new_config", "feature/where_am_i"]
+      }
+      forked.as_yaml.should == YAML::dump(yaml_repr)
+    end
+  end
+  
   describe ".as_excel" do
     it "should support producing the report as a report to an excel document" do
       pending "Write the Excel Output Module"
