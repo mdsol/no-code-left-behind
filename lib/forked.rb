@@ -1,4 +1,5 @@
 require 'write_xlsx'
+require 'yaml'
 
 class ForkedReport 
 
@@ -60,4 +61,7 @@ class ForkedReport
     report
   end
 
+  def as_yaml
+    YAML::dump({'fork' => @repository, 'branches' => self.local_branches.collect {|x| x[:name]}})
+  end
 end
