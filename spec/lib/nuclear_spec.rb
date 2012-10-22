@@ -71,6 +71,37 @@ describe KitchenDrawer do
     @d.stub(:client).and_return(@m)
   end
   
+  describe ".is_merged?" do
+    
+    it "returns true if all branches are merged" do
+      @m.stub(:login).and_return(@user)
+      # need to get the owner and forkname
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      # get the branches from the fork
+      @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
+      # return the list of branches on the departed user fork
+      @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "someOwner_master"}, {:name => "someOwner_develop"}])
+      @d.is_merged?("someOwner/someFork").should be_true
+    end
+    
+    it "returns false if all branches are not merged" do
+      @m.stub(:login).and_return(@user)
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
+      @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "weeone_master"}, {:name => "weeone_develop"}])
+      @d.is_merged?("someOwner/someFork").should be_false
+    end
+
+    it "returns false if some branches are not merged" do
+      @m.stub(:login).and_return(@user)
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
+      @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "someOwner_master"}, {:name => "weeone_master"}])
+      @d.is_merged?("someOwner/someFork").should be_false
+    end
+    
+  end
+  
   describe ".complete_merge?" do
     
     it "shows that all merges have been completed" do
