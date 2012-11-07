@@ -3,6 +3,9 @@ require 'octokit'
 class ConnectError < StandardError
 end
 
+class AccessError < StandardError
+end
+
 module Blockable
   
   def client
@@ -75,7 +78,11 @@ module Blockable
     end
     unless @cache["#{repository}"]
       # cache the pull
-      @cache["#{repository}"] = self.client.repository(repository)  
+      begin
+        @cache["#{repository}"] = self.client.repository(repository)  
+      rescue Octokit::NotFound
+        raise AccessError, "Cannot access #{repository} - check that the leaver user is in a team with visibility"
+      end
     end
     @cache["#{repository}"]
   end
