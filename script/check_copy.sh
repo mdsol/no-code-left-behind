@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# Pass in DEPARTEDUSER as the environment variable
+# Checks that all sha hashes from the leaver's fork are represented on the departeduser's fork
+# Either:
+#  Pass in DEPARTEDUSER as the environment variable
+# Or, uncomment and complete the following
+#  DEPARTEDUSER=""
 
 function check_hashes
 {
