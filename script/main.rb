@@ -1,7 +1,17 @@
-require 'atomic'
-require 'forked'
-require 'nuclear'
 require 'optparse'
+
+unless Kernel.respond_to?(:require_relative)
+  module Kernel
+    def require_relative(path)
+      require File.join(File.dirname(caller[0]), path.to_str)
+    end
+  end
+end
+
+require_relative '../lib/atomic'
+require_relative '../lib/forked'
+require_relative '../lib/nuclear'
+require_relative '../lib/blockable'
 
 class Orphanator
 
@@ -12,65 +22,67 @@ class Orphanator
   end
   
   def run
+    # execute the merge
     if @options.has_key?(:filename)
       self.batch_process(@options[:filename])
     end
-    @options[:arguments].each do |fork|
+    @options[:passed_in].each do |fork|
       self.process(fork)
     end
-    puts "The following forks were successfully merged"
+    puts "The following forks were successfully merged - url specifies link to deletion"
     @processed.sort.each do |merged_fork|
-      p "#{merged_fork} - https://github.com/#{merged_fork}/admin#delete_repo_confirm"  
+      puts "#{merged_fork} - https://github.com/#{merged_fork}/admin#delete_repo_confirm"  
     end
-    p "Please follow the above links to remove the repository"
   end
   
   def batch_process(file)
-    """
-    Process a number of entries, passed in a file
-    """
+    # Process a number of entries, passed in a file
     if File.exist?(file)
       batcher = File.open(file)
       while (line = batcher.gets)
-        if @options[:mode] == "nuclear"
-          self.nucleate(line)
-        elsif @options[:mode] == "atomic"
-          self.atomize(line)
+        begin
+          if @options[:mode] == "nuclear"
+            self.nucleate(line.strip)
+          elsif @options[:mode] == "atomic"
+            self.atomize(line.strip)
+          end
+        rescue AccessError => e
+          puts "Access Error raised on #{line.strip} - check access: #{e.message}"
         end
+      end
     end
   end
   
   def process(forked_repository)
-    """
-    Process a single entity
-    """
+    # Process a single entity
     if @options[:mode] == "nuclear"
-      self.nucleate(line)
+      self.nucleate(forked_repository)
     elsif @options[:mode] == "atomic"
-      self.atomize(line)
+      self.atomize(forked_repository)
     end
   end
   
   protected
   
   def nucleate(forked_repository)
-    """
-    Process a single repository
-    """
+    # Process a single repository
     # nuclear needs single instance
-    @nuclear ||= Nuclear.new(@options[:timeout])
+    @nuclear ||= KitchenDrawer.new(@options[:timeout])
     begin
-      @nuclear.merge_fork(forked_repository)
-      @processed << forked_repository
+      status = @nuclear.merge_fork(forked_repository)
+      if status == true
+        @processed << forked_repository
+      end
     rescue FissionError => e
       puts "Processing #{forked_repository} failed: #{e}"
+    rescue ConnectError => e
+      puts "Cannot connect using GitHub API"
+      exit(1)
     end
   end
   
   def atomize(forked_repository)
-    """
-    Process a single repository
-    """
+    # Process a single repository
     @atomic ||= Atomic.new
     begin
       source_repo = @atomic.source_repo(repository)
@@ -85,6 +97,12 @@ class Orphanator
       @processed << forked_repository
     rescue FissionError => e
       puts "Processing #{forked_repository} failed: #{e}"
+    rescue ConnectError => e
+      puts "Cannot connect using GitHub API"
+      exit(1)
+    rescue AccessError => e
+      puts "Access Error: #{e}"
+      exit(1)
     end
     
   end
@@ -97,7 +115,7 @@ def numeric?(object)
 end
 
 if __FILE__ == $0
-  options = {:mode => "nuclear", :timeout => 240}
+  options = {:mode => "nuclear", :timeout => 240, :passed_in => []}
   OptionParser.new do |opts|
     opts.banner = "Usage: main.rb [options]"
     
@@ -109,7 +127,7 @@ if __FILE__ == $0
       options[:mode] = mode
     end
 
-    opts.on("-f", "--file-batch", "File containing list of fork") do |filename|
+    opts.on("-f", "--file [FILENAME]", "File containing list of fork") do |filename|
       unless File.exist?(filename)
         puts "File #{filename} not found, exiting"
         exit(1)
@@ -117,7 +135,7 @@ if __FILE__ == $0
       options[:filename] = filename
     end
     
-    opts.on("-t", "--git-timeout", "Timeout for Git operations") do |timeout|
+    opts.on("-t", "--git-timeout [TIMEOUT]", "Timeout for Git operations") do |timeout|
       if numeric?(timeout)
         options[:timeout] = timeout.to_i
       else
@@ -125,8 +143,16 @@ if __FILE__ == $0
         exit(1)
       end
     end
-    
+
   end.parse!
   
-  
+  # remainder goes into :passed_in
+  options[:passed_in] = ARGV
+
+  if not (options[:passed_in].empty? && options.fetch(:filename, nil).nil?)
+    orphanator = Orphanator.new(options)
+    orphanator.run
+  else
+    puts "Nothing to do"
+  end
 end
