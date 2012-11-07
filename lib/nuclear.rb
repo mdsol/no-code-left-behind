@@ -8,6 +8,8 @@ require_relative './blockable'
 [LOCAL]Need to use the git api to add the remote
 [LOCAL]Need to use the git api to create the branch
 [LOCAL]Need to use the git api to push the new branch to the remote
+TODO: Handle case where branch is created, but not registered as being (probably time related)
+TODO: Git Timeout seems a bit idiopathic - need to dig into GRIT to see where it's coming from
 =end
 
 class FissionError < StandardError
@@ -23,19 +25,42 @@ class KitchenDrawer
     # kick back if not a fork
   end
 
+  def is_merged?(forked_repository)
+    # return true if the forked_branches are already on the departedusers fork
+    owner = get_repository(forked_repository)[:owner][:login]
+    name = get_repository(forked_repository)[:name]
+    fork_branches = get_branches(forked_repository).collect {|x| "#{owner}_#{x[:name]}"}
+    begin
+      dep_repo_branches = get_branches("#{self.client.login}/#{name}").select {|x| x[:name].start_with?("#{owner}_")}.collect {|x| x[:name]}
+      fork_branches.sort == dep_repo_branches.sort
+    rescue Octokit::NotFound
+      return false
+    end
+    
+  end
+  
   def merge_fork(forked_repository)
     # intended to be called multiple times
     # name of forked repo
     if self.is_fork?(forked_repository)
-      self.get_or_create_fork(forked_repository)
-      self.merge_forked_repository(forked_repository)
-      self.complete_merge?(forked_repository)
+      status = false
+      if is_merged?(forked_repository)
+        status = true
+      else
+        get_or_create_fork(forked_repository)
+        merge_forked_repository(forked_repository)
+        status = complete_merge?(forked_repository)
+        # return whether it was a complete merge
+      end
+      # to generate the URLs for deletion
+      status
     else
       raise FissionError, "#{forked_repository} is not a fork"
     end
   end
   
   def complete_merge?(forked_repository)
+    # Returns if there was a successful merge
     forked_repo = self.get_repository(forked_repository)
     owner = forked_repo[:owner][:login]
     dep_repo_branches = self.get_branches("#{self.client.login}/#{forked_repo[:name]}").collect {|x| x[:name] if x[:name].start_with?(owner)}
@@ -43,7 +68,7 @@ class KitchenDrawer
     complete_merge = true
     fork_repo_branches.each do |branch_name|
       unless dep_repo_branches.include?("#{owner}_#{branch_name}")
-        p "Unsuccessful merge for #{forked_repository} branch #{branch_name}"
+        puts "Unsuccessful merge for #{forked_repository} branch #{branch_name}"
         complete_merge = false
       end
     end
@@ -91,9 +116,11 @@ class KitchenDrawer
     g.remote_add(departed_user, dep_repo[:ssh_url])
     
     # fetch the forked repo
+    # TODO: where does the timeout variable come from
+    # TODO: when a timeout occurs roll-back the git action
     begin
       g.git.fetch({:timeout => @timeout}, fork_owner)
-    rescue Git::Timeout
+    rescue Git::GitTimeout
       raise FissionError, "Timeout #{@timeout} exceeded on fetch, increase and rerun"
     end  
     remote_branches = self.client.branches(dep_repo[:full_name]).collect {|x| x[:name]}
@@ -114,7 +141,7 @@ class KitchenDrawer
         # push the branch to the departed user fork
         begin
           g.git.push({}, self.client.login, "#{cloned_branch}:#{cloned_branch}")
-        rescue Git::Timeout
+        rescue Git::GitTimeout
           raise FissionError,"Timeout #{@timeout} exceeded on fetch, increase and rerun"
         end 
       end
