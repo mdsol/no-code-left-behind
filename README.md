@@ -33,10 +33,13 @@ Mock Member - a stub account within the organisation with the intention of ownin
 3. Delete the orphaned fork (as a manual action)
 
 ###Comments
-1. The script is expected to be run as the mock member
+1. The script is expected to be run as the mock member (with an OAuth token for the user)
   1. The login and a generated OAuth Token need to be supplied in the config/configuration.yml under the section 
   2. The deletion of the forks is to be done by the user.  A URL to the deletion element will be displayed
   3. Deletion will only be recommended when all forks are merged
+2. There are a couple of problems with timing
+  1. Often the merge will claim to have failed, because the change has been made but not been registered by the GitHub API - running again will have no adverse effect as it won't try to merge a branch that's already merged; the interval between runs is greater than the interval within runs
+  2. The GRIT gem adds a timeout to Git commands - this may get exhausted - I've not been able to reliably work out the timing.  In most cases running again with a longer timeout (`-t timeout`) will fix the issue 
 
 ### Usage
 The script can be initiated by running 
