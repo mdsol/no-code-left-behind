@@ -3,6 +3,7 @@ require 'octokit'
 require 'hashie'
 require 'atomic'
 
+@wip
 describe Atomic do
   
   before :each do
