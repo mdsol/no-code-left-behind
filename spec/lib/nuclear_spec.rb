@@ -76,7 +76,9 @@ describe KitchenDrawer do
     it "returns true if all branches are merged" do
       @m.stub(:login).and_return(@user)
       # need to get the owner and forkname
-      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", 
+        :owner => {:login => "someOwner"},
+        :parent => {:name => "someFork"}})
       # get the branches from the fork
       @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
       # return the list of branches on the departed user fork
@@ -86,7 +88,9 @@ describe KitchenDrawer do
     
     it "returns false if all branches are not merged" do
       @m.stub(:login).and_return(@user)
-      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", 
+        :owner => {:login => "someOwner"},
+        :parent => {:name => "someFork"}})
       @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
       @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "weeone_master"}, {:name => "weeone_develop"}])
       @d.is_merged?("someOwner/someFork").should be_false
@@ -94,47 +98,40 @@ describe KitchenDrawer do
 
     it "returns false if some branches are not merged" do
       @m.stub(:login).and_return(@user)
-      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", :owner => {:login => "someOwner"}})
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", 
+        :owner => {:login => "someOwner"},
+        :parent => {:name => "someFork"}})
       @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
       @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "someOwner_master"}, {:name => "weeone_master"}])
       @d.is_merged?("someOwner/someFork").should be_false
     end
     
-  end
-  
-  describe ".complete_merge?" do
-    
-    it "shows that all merges have been completed" do
+    it "can handle it if the fork has a different name to the parent" do
       @m.stub(:login).and_return(@user)
-      @m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
-      @m.stub!(:repository).with("depUser/Trance").and_return(@dep_repo)
-      @m.stub!(:branches).with("depUser/Trance").and_return([{:name => "master"}, 
-                                                            {:name => "develop"}, 
-                                                            {:name => "someUser_develop"},   
-                                                            {:name => "someUser_master"}])
-      @m.stub!(:branches).with("someUser/Trance").and_return([{:name => "master"}, 
-                                                              {:name => "develop"}, 
-                                                              ])
-      @d.complete_merge?("someUser/Trance").should be_true
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", 
+        :owner => {:login => "someOwner"},
+        :parent => {:name => "someToFork"}})
+      # Fork branches 
+      @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
+      # Merged branches
+      @d.stub(:get_branches).with("#{@user}/someToFork").and_return([{:name => "someOwner_master"}, {:name => "someOwner_develop"}])
+      @d.is_merged?("someOwner/someFork").should be_true
     end
-    
-    it "shows that only a partial merge has taken place" do
-      @m.stub(:login).and_return(@user)
-      @m.stub!(:repository).with("someUser/Trance").and_return(@fork_repo)
-      @m.stub!(:repository).with("depUser/Trance").and_return(@dep_repo)
-      @m.stub!(:branches).with("depUser/Trance").and_return([{:name => "master"}, 
-                                                            {:name => "develop"}, 
-                                                            {:name => "someUser_develop"},   
-                                                            {:name => "someUser_master"}])
-      @m.stub!(:branches).with("someUser/Trance").and_return([{:name => "master"}, 
-                                                              {:name => "develop"},
-                                                              {:name => "feature/bells_and_whistles"} 
-                                                              ])
-      @d.complete_merge?("someUser/Trance").should be_false
-    end
-    
-  end
   
+    it "looks at a specified repo if pointed at it" do
+      @m.stub(:login).and_return(@user)
+      @d.stub(:get_repository).with("someOwner/someFork").and_return({:name => "someFork", 
+        :owner => {:login => "someOwner"},
+        :parent => {:name => "someFork"}})
+      # Fork branches 
+      @d.stub(:get_branches).with("someOwner/someFork").and_return([{:name => "master"}, {:name => "develop"}])
+      # Merged branches
+      @d.stub(:get_branches).with("#{@user}/someFork").and_return([{:name => "someOwner_master"}, {:name => "someOwner_develop"}])
+      @d.is_merged?("someOwner/someFork", "thewalrus/someFork").should be_true
+    end
+        
+  end
+    
   describe ".get_or_create_fork" do
     # Create a fork of the source repository
     it "returns the nominated fork when it already exists" do
@@ -157,19 +154,37 @@ describe KitchenDrawer do
       @m.stub(:login).and_return(@user)
       @d.get_or_create_fork("someUser/Trance").should == @dep_repo
     end
+
+    it "creates a specified fork when it doesn't already exist and return it" do
+      # return no forks
+      @m.stub(:repositories).and_return([])
+      @m.should_receive(:fork).with("thewalrus/Trance")
+      @m.stub(:repositories).and_return([{:full_name => "depUser/Trance"}])
+      repo = {:name => "Trance", :full_name => "thewalrus/Trance"}
+      @m.stub(:repository).with("thewalrus/Trance").and_return(repo)
+      @m.stub(:repository).with("depUser/Trance").and_return(@dep_repo)
+      @m.stub(:login).and_return(@user)
+      @d.get_or_create_fork("someUser/Trance", "thewalrus/Trance").should == @dep_repo
+    end
+
   end
 
   # describe ".archive_branch" do
-  #   it "should archive the branch" do
-  #     branch = mock(Grit::Remote)
-  #     git = mock(Grit::Git)
-  #     repo.stub!(:git).and_return(git)
-  #     git.should_receive(:branch).with({}, "someUser_develop", "someUser/develop")
-  #     git.should_receive(:push).with({}, "depUser", "someUser_develop")
-  #     @m.stub(:login).and_return(@user)
-  #     @m.archive_branch("", "")
+  #     it "should archive the branch" do
+  #       branch = mock(Grit::Remote, :name => "someUser/develop")
+  #       git = mock(Grit::Git)
+  #       repo = mock(Grit::Repo)
+  #       gpath = create_temp_repo(File.join(File.dirname(__FILE__), *%w[dot_git]))
+  #       repo.stub!(:new).with(gpath)
+  #       repo.stub!(:git).and_return(git)
+  #       git.should_receive(:branch).with({}, "someUser_develop", "someUser/develop")
+  #       git.should_receive(:push).with({:timeout => @d.instance_variable_get("@timeout")}, 
+  #         "depUser", 
+  #         "someUser_develop")
+  #       @m.stub(:login).and_return(@user)
+  #       @d.archive_branch("some_path", branch)
+  #     end
   #   end
-  # end
   
   describe ".clone_repository" do
     it "creates a local clone copy of a remote repository" do
