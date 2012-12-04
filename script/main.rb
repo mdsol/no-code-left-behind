@@ -69,7 +69,7 @@ class Orphanator
     # nuclear needs single instance
     @nuclear ||= KitchenDrawer.new(@options[:timeout])
     begin
-      status = @nuclear.merge_fork(forked_repository)
+      status = @nuclear.merge_fork(forked_repository, @options[:source].nil? ? "" : @options[:source])
       if status == true
         @processed << forked_repository
       end
@@ -115,7 +115,10 @@ def numeric?(object)
 end
 
 if __FILE__ == $0
-  options = {:mode => "nuclear", :timeout => 240, :passed_in => []}
+  options = {:mode => "nuclear", 
+    :timeout => 240, 
+    :passed_in => [], 
+    :source => nil}
   OptionParser.new do |opts|
     opts.banner = "Usage: main.rb [options]"
     
@@ -144,12 +147,19 @@ if __FILE__ == $0
       end
     end
 
+    opts.on("-s", "--source-fork [FILENAME]", "Source for fork, to ignore the defined parent") do |filename|
+      options[:source] = filename
+    end
+    
   end.parse!
   
   # remainder goes into :passed_in
   options[:passed_in] = ARGV
 
   if not (options[:passed_in].empty? && options.fetch(:filename, nil).nil?)
+    orphanator = Orphanator.new(options)
+    orphanator.run
+  elsif (options[:source] && options[:passed_in].length == 1)
     orphanator = Orphanator.new(options)
     orphanator.run
   else
