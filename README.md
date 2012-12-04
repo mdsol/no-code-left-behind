@@ -48,7 +48,7 @@ the following arguments exist:
 * -f {filename} - a newline separated list of forks to process
 * -m {mode} - what mode to run - defaults to nuclear
 * -t {timeout} - what timeout to set for git commands, please note that the api adds around 20% to shell calls
-
+* -s {source-repository} - specify what the parent repository should be (eg where a fork of a fork is created)
 
 ##Resolution (Atomic)
 
