@@ -168,23 +168,6 @@ describe KitchenDrawer do
     end
 
   end
-
-  # describe ".archive_branch" do
-  #     it "should archive the branch" do
-  #       branch = mock(Grit::Remote, :name => "someUser/develop")
-  #       git = mock(Grit::Git)
-  #       repo = mock(Grit::Repo)
-  #       gpath = create_temp_repo(File.join(File.dirname(__FILE__), *%w[dot_git]))
-  #       repo.stub!(:new).with(gpath)
-  #       repo.stub!(:git).and_return(git)
-  #       git.should_receive(:branch).with({}, "someUser_develop", "someUser/develop")
-  #       git.should_receive(:push).with({:timeout => @d.instance_variable_get("@timeout")}, 
-  #         "depUser", 
-  #         "someUser_develop")
-  #       @m.stub(:login).and_return(@user)
-  #       @d.archive_branch("some_path", branch)
-  #     end
-  #   end
   
   describe ".clone_repository" do
     it "creates a local clone copy of a remote repository" do
