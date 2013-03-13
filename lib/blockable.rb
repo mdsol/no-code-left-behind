@@ -10,19 +10,19 @@ module Blockable
   
   def client
     @client ||= Octokit::Client.new({:login => self.login, 
-      :oauth_token => self.token, 
+      :oauth_token => token, 
       :per_page => 100,
       :auto_traversal => true  }) 
   end
   
   def login
     # get the login
-    @login ||= self.get_auth.first
+    @login ||= get_auth.first
   end
   
   def token
     # get the token
-    @token ||= self.get_auth.last
+    @token ||= get_auth.last
   end
   
   def get_auth(path="")
@@ -43,26 +43,30 @@ module Blockable
     end
   end
   
+  def expire(token)
+    @cache.delete_if { |key, value| key.include?(token) }
+  end
+  
   def is_fork?(repository)
-    self.get_repository(repository)[:fork]
+    get_repository(repository)[:fork]
   end
 
   def source_repo(repository)
     # given a fork name (:full_name), return the parent
-    if self.is_fork?(repository)
+    if is_fork?(repository)
       # get the fork from GitHub (should be cached from the is_fork? call)
-      repo = self.get_repository(repository)
+      repo = get_repository(repository)
       # get the parent from GitHub
-      self.get_repository(repo[:parent][:full_name])
+      get_repository(repo[:parent][:full_name])
     else
-      self.get_repository(repository)
+      get_repository(repository)
     end
   end
   
   def my_fork(repository_name)
-    self.client.repositories().each do |repo|
+    client.repositories().each do |repo|
       if repo[:name] == repository_name
-        return self.get_repository(repo[:full_name])
+        return get_repository(repo[:full_name])
       end
     end
   end
@@ -79,7 +83,7 @@ module Blockable
     unless @cache["#{repository}"]
       # cache the pull
       begin
-        @cache["#{repository}"] = self.client.repository(repository)  
+        @cache["#{repository}"] = client.repository(repository)  
       rescue Octokit::NotFound
         raise AccessError, "Cannot access #{repository} - check that the leaver user is in a team with visibility"
       end
@@ -94,7 +98,7 @@ module Blockable
     end
     unless @cache["#{repository}_branches"]
       # cache the pull
-      @cache["#{repository}_branches"] = self.client.branches(repository)  
+      @cache["#{repository}_branches"] = client.branches(repository)  
     end
     @cache["#{repository}_branches"]
   end
@@ -106,7 +110,7 @@ module Blockable
     end
     unless @cache["#{repository}_#{branch}_commits"]
       # cache this 
-      @cache["#{repository}_#{branch}_commits"] = self.client.commits(repository, branch)
+      @cache["#{repository}_#{branch}_commits"] = client.commits(repository, branch)
     end
     @cache["#{repository}_#{branch}_commits"]
   end
