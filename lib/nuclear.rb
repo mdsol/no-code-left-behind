@@ -25,13 +25,20 @@ class KitchenDrawer
     # kick back if not a fork
   end
 
-  def is_merged?(forked_repository)
+  def is_merged?(forked_repository, parent_repo="")
     # return true if the forked_branches are already on the departedusers fork
     owner = get_repository(forked_repository)[:owner][:login]
     name = get_repository(forked_repository)[:name]
+    if parent_repo.eql?("")
+      # derive from repository
+      parent = get_repository(forked_repository)[:parent]
+    else 
+      # parent specified - use this
+      parent = { :name => parent_repo.split('/').last }
+    end
     fork_branches = get_branches(forked_repository).collect {|x| "#{owner}_#{x[:name]}"}
     begin
-      dep_repo_branches = get_branches("#{self.client.login}/#{name}").select {|x| x[:name].start_with?("#{owner}_")}.collect {|x| x[:name]}
+      dep_repo_branches = get_branches("#{client.login}/#{parent[:name]}").select {|x| x[:name].start_with?("#{owner}_")}.collect {|x| x[:name]}
       fork_branches.sort == dep_repo_branches.sort
     rescue Octokit::NotFound
       return false
@@ -39,17 +46,19 @@ class KitchenDrawer
     
   end
   
-  def merge_fork(forked_repository)
+  def merge_fork(forked_repository, parent_repo="")
     # intended to be called multiple times
     # name of forked repo
-    if self.is_fork?(forked_repository)
+    if is_fork?(forked_repository)
       status = false
-      if is_merged?(forked_repository)
+      if is_merged?(forked_repository, parent_repo)
         status = true
       else
-        get_or_create_fork(forked_repository)
-        merge_forked_repository(forked_repository)
-        status = complete_merge?(forked_repository)
+        get_or_create_fork(forked_repository, parent_repo)
+        merge_forked_repository(forked_repository, parent_repo)
+        status = is_merged?(forked_repository, parent_repo)
+        # remove it from the cache
+        expire(forked_repository)
         # return whether it was a complete merge
       end
       # to generate the URLs for deletion
@@ -58,53 +67,47 @@ class KitchenDrawer
       raise FissionError, "#{forked_repository} is not a fork"
     end
   end
-  
-  def complete_merge?(forked_repository)
-    # Returns if there was a successful merge
-    forked_repo = self.get_repository(forked_repository)
-    owner = forked_repo[:owner][:login]
-    dep_repo_branches = self.get_branches("#{self.client.login}/#{forked_repo[:name]}").collect {|x| x[:name] if x[:name].start_with?(owner)}
-    fork_repo_branches = self.get_branches(forked_repository).collect {|x| x[:name]}
-    complete_merge = true
-    fork_repo_branches.each do |branch_name|
-      unless dep_repo_branches.include?("#{owner}_#{branch_name}")
-        puts "Unsuccessful merge for #{forked_repository} branch #{branch_name}"
-        complete_merge = false
-      end
-    end
-    complete_merge
-  end
-  
-  def get_or_create_fork(repository_name)
+    
+  def get_or_create_fork(repository_name, parent_repo="")
     # create a fork for the source repository (as the departeduser) [using GH api]
     # check and see if the fork already exists in the departedusers list (as we are 
     #  logging in using this account)
-    source_repo = self.source_repo(repository_name)
-    my_repos = self.client.repositories().collect {|x| x[:name]}
+    if parent_repo == ""
+      # take the parent
+      source_repo = source_repo(repository_name) 
+    else
+      # specify the parent
+      source_repo = client.repository(parent_repo)
+    end
+    my_repos = client.repositories().collect {|x| x[:name]}
     unless my_repos.include?(source_repo[:name])
       puts "Forking #{source_repo[:full_name]}"
-      self.client.fork(source_repo[:full_name])
+      client.fork(source_repo[:full_name])
     end
     # return repository object
     # this is tacky.... 
-    self.client.repository("#{self.client.login}/#{source_repo[:name]}")
+    client.repository("#{self.client.login}/#{source_repo[:name]}")
   end
   
-  def merge_forked_repository(fork_repository)
+  def merge_forked_repository(fork_repository, parent_repo="")
     # TODO: refactor this - massive function, but the grit deps are a pain
     
     # retrieve the repo hashes
-    source_repo = self.source_repo(fork_repository)
-    fork_repo = self.get_repository(fork_repository)
-    dep_repo = self.my_fork(source_repo[:name])
+    if parent_repo.eql?("")
+      source_repo = source_repo(fork_repository)
+    else
+      source_repo = get_repository(parent_repo)
+    end
+    fork_repo = get_repository(fork_repository)
+    dep_repo = my_fork(source_repo[:name])
     
     # synonyms for clarity
     fork_owner = fork_repo[:owner][:login]
-    departed_user = self.client.login
+    departed_user = client.login
     
     # if the clone already exists, then reuse it, otherwise clone (can take a long time)
     unless Dir.exist?(File.join(@tmplocation, source_repo[:name]))
-      self.clone_repository(source_repo)
+      clone_repository(source_repo)
     end
     
     # Repo object
@@ -126,27 +129,45 @@ class KitchenDrawer
     remote_branches = self.client.branches(dep_repo[:full_name]).collect {|x| x[:name]}
     # iterate through the branches on the local 
     g.remotes.select {|x| x.name.start_with?(fork_owner)}.each do |branch|
-      # cloned branch {leaver}_{branch}, eg someUser_develop, someUser_feature/sausages
-      # branch.full is like remotes/someUser/
+      puts "Cloning #{branch.name}"
       cloned_branch = branch.name.gsub("#{fork_owner}/", "#{fork_owner}_")
       # using GH api here
       # only create and push if the branch doesn't already exist
-      if remote_branches.include?(cloned_branch)
-        puts "#{cloned_branch} already merged"
-      else
-        puts "Cloning #{branch.name} as #{cloned_branch}"
+      unless remote_branches.include?(cloned_branch)
+        owner = branch.name.split('/').first
+        cloned_branch = branch.name.gsub("#{owner}/", "#{owner}_")
         # create the branch as "{leaver}_{branch_name}"
         # create the branch on the local copy
         g.git.branch({}, cloned_branch, branch.name)
         # push the branch to the departed user fork
         begin
-          g.git.push({}, self.client.login, "#{cloned_branch}:#{cloned_branch}")
+          g.git.push({:timeout => @timeout}, self.client.login, "#{cloned_branch}:#{cloned_branch}")
         rescue Git::GitTimeout
-          raise FissionError,"Timeout #{@timeout} exceeded on fetch, increase and rerun"
+          raise FissionError,"Timeout #{@timeout} exceeded on push, increase and rerun"
         end 
       end
     end
-     
+    # clear the cache
+    clear_cache 
+  end
+  
+  def archive_branch(path, branch)
+    # path - path to the checked out repo
+    # branch - the Grit::Remote remote 
+    # cloned branch {leaver}_{branch}, eg someUser_develop, someUser_feature/sausages
+    # branch.full is like remotes/someUser/
+    owner = branch.name.split('/').first
+    cloned_branch = branch.name.gsub("#{owner}/", "#{owner}_")
+    # create the branch as "{leaver}_{branch_name}"
+    # create the branch on the local copy
+    g = Grit::Repo.new(path)
+    g.git.branch({}, cloned_branch, branch.name)
+    # push the branch to the departed user fork
+    begin
+      g.git.push({:timeout => @timeout}, self.client.login, "#{cloned_branch}:#{cloned_branch}")
+    rescue Git::GitTimeout
+      raise FissionError,"Timeout #{@timeout} exceeded on push, increase and rerun"
+    end 
   end
   
   def clone_repository(repository)
