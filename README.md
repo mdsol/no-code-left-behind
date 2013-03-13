@@ -42,8 +42,10 @@ Mock Member - a stub account within the organisation with the intention of ownin
   2. The GRIT gem adds a timeout to Git commands - this may get exhausted - I've not been able to reliably work out the timing.  In most cases running again with a longer timeout (`-t timeout`) will fix the issue 
 
 ### Usage
+The `configuration.yml` file should be completed with the access details for the nominated archive user.
+
 The script can be initiated by running 
-$ ruby scripts/main.rb [forks]
+`$ ruby scripts/main.rb [forks]`
 the following arguments exist:
 * -f {filename} - a newline separated list of forks to process
 * -m {mode} - what mode to run - defaults to nuclear
@@ -51,6 +53,7 @@ the following arguments exist:
 * -s {source-repository} - specify what the parent repository should be (eg where a fork of a fork is created) - use the full\_name (eg glow-mdsol/SHAREutils)
 
 ##Resolution (Atomic)
+[NOT IMPLEMENTED]
 
 ###Process
 As an alternative to save copying numerous numbers of (essentially) unchanged branches about, we're going to adopt a slightly different approach.
