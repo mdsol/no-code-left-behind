@@ -42,9 +42,9 @@ class Orphanator
       while (line = batcher.gets)
         begin
           if @options[:mode] == "nuclear"
-            self.nucleate(line.strip)
+            self.nucleate(line.strip) unless line.strip.empty?
           elsif @options[:mode] == "atomic"
-            self.atomize(line.strip)
+            self.atomize(line.strip) unless line.strip.empty?
           end
         rescue AccessError => e
           puts "Access Error raised on #{line.strip} - check access: #{e.message}"
