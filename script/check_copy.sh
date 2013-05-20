@@ -6,6 +6,12 @@
 # Or, uncomment and complete the following
 #  DEPARTEDUSER=""
 
+function usage
+{
+  echo "Usage is: ${0} [forkname] [(OPTIONAL) Original name]"
+  echo "where [forkname] is the name of the fork (eg someuser/OriginalRepo)"
+  echo "if the fork has been renamed, then specify the name of the source repository as a second argument"
+}
 
 function check_hashes
 {
@@ -23,16 +29,28 @@ function check_hashes
   else
     local copy="${DEPARTEDUSER}/${repository}"
   fi
-  copy_branches=$(curl https://api.github.com/repos/${copy}/branches)
-  shas=$(curl https://api.github.com/repos/${fork}/branches | grep '"sha"' | awk '{print $2}') 
-  for sha in ${shas}; 
+  declare -i ERROR
+  ERROR=0
+  # get the shas for the branches on the departed user fork
+  copy_branches=$(curl https://api.github.com/repos/${copy}/branches | grep '"sha"' | awk '{print $2}' | sed 's/,//')
+  shas=$(curl https://api.github.com/repos/${fork}/branches | grep '"sha"' | awk '{print $2}' | sed 's/,//') 
+  for sha in $(echo ${shas}); 
   do 
-    echo "Checking ${sha}" 
-    check=$(echo $copy_branches | grep $sha); 
+    check=$(echo "${copy_branches}" | grep $sha); 
     if [ -z "${check}" ]; then 
-      echo "${shas} is missing"; 
-    fi; 
+      ERROR=1
+      echo "SHA ${sha} is missing";
+      matching=$(curl https://api.github.com/repos/${fork}/branches | grep -B 2 ${sha} | grep "name" | awk '{print $2}')
+      echo "Branch: ${matching}"
+    fi 
   done
+  if [ $ERROR -eq 0 ]; then
+    echo "No missing branches found by commit SHA"
+  fi
 }
 
-check_hashes $1 $2
+if [ $# -ge 1 ]; then
+  check_hashes $1 $2
+else
+  usage
+fi
