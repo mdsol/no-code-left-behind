@@ -1,13 +1,18 @@
 require 'octokit'
 require 'yaml'
 
+class AgentError < Exception
+
+end
+
 module GitHubAgent
   # To change this template use File | Settings | File Templates.
 
   def client
-    @client ||= Octokit::Client.new({ access_token: token,
-                                      per_page: 100,
-                                      auto_paginate: true  })
+    unless defined? @client
+      @client = Octokit::Client.new({ access_token: token, per_page: 100, auto_paginate: true  })
+    end
+    @client
   end
 
   def token
@@ -24,10 +29,15 @@ module GitHubAgent
     end
     if File.exist?(cf_file)
       # TODO: YAML Parse Error?
-      config = YAML::load_file(cf_file)
-      config['access_token']
+      begin
+        config = YAML.load(cf_file)
+        raise AgentError, "Token not found" unless not config['access_token'].nil?
+        config['access_token']
+      rescue SyntaxError
+        raise AgentError, "Parsing Config file failed"
+      end
     else
-      raise ConnectError, "Config file not found"
+      raise AgentError, "Config file not found"
     end
   end
 
