@@ -100,7 +100,11 @@ class Archiver
 
   def validates?
     # does the request make sense
-    client.repo(fork_name).fork
+    begin
+      client.repo(fork_name).fork
+    rescue Octokit::NotFound
+      raise ArchivingError, "No such repository #{fork_name}"
+    end
   end
 
   def clone
