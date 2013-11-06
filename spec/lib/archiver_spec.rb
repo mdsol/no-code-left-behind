@@ -73,7 +73,7 @@ describe Archiver do
   describe "#branches_to_archive" do
     before(:each) do
       archiver.stub(:fork_repository).and_return(fork)
-      archiver.stub(:parent_repository).and_return(fork_parent)
+      archiver.stub(:archive_repository).and_return(archive)
     end
 
     it "returns an empty Array if there are none to archive" do
@@ -124,9 +124,7 @@ describe Archiver do
       clone = double("Grit::Repo")
       client.stub(:user).and_return(double(login: user.login))
       clone.should_receive(:remote_add).with(fork.owner.login,
-                                             fork.rels[:git].href)
-      clone.should_receive(:remote_add).with(user.login,
-                                             archive.rels[:git].href)
+                                             fork.rels[:ssh].href)
       clone.stub(:remote).and_return(double(fetch: nil))
       git = double("git")
       git.should_receive(:fetch)
@@ -141,7 +139,7 @@ describe Archiver do
       Grit::Git.stub(:new).and_return(grit)
       clone = double("Grit::Repo")
       client.stub(:user).and_return(double(login: user.login))
-      clone.should_receive(:remote_add).twice
+      clone.should_receive(:remote_add).once
       clone.stub(:remote).and_return(double(fetch: nil))
       git = double("git")
       git.should_receive(:fetch)
@@ -165,7 +163,7 @@ describe Archiver do
       Grit::Git.stub(:new).and_return(grit)
       clone = double("Grit::Repo")
       client.stub(:user).and_return(double(login: user.login))
-      clone.should_receive(:remote_add).twice
+      clone.should_receive(:remote_add).once
       clone.stub(:remote).and_return(double(fetch: nil))
       git = double("git")
       git.should_receive(:fetch).and_raise(Grit::Git::GitTimeout)

@@ -84,7 +84,7 @@ class Archiver
   end
 
   def branches_to_archive
-    (repo_shas(fork_repository.full_name) - repo_shas(parent_repository.full_name))
+    (repo_shas(fork_repository.full_name) - repo_shas(archive_repository.full_name))
   end
 
   def branch_name_exists?(branch_name)
@@ -94,7 +94,7 @@ class Archiver
 
   def has_similar_branches?
     branches = client.branches(fork_repository.full_name).collect {|x| x.name.downcase}
-    # if the uniques are not the same as
+    # if the uniqued values are not the same as the un-uniqued
     branches != branches.uniq
   end
 
@@ -110,17 +110,20 @@ class Archiver
       # clone the archive repository
       begin
         git = Grit::Git.new(tmpdir)
-        git.clone({quiet: false, verbose: true, progress: true, timeout: @timeout},
-                  archive_repository.rels[:git].href,
+        git.clone({quiet: false,
+                   verbose: true,
+                   progress: true,
+                   timeout: timeout},
+                  archive_repository.rels[:ssh].href,
                   File.join(tmpdir, archive_repository.name))
       rescue Git::GitTimeout
-        raise ArchivingError, "Timeout #{@timeout} exceeded on clone, increase and rerun"
+        raise ArchivingError, "Timeout #{timeout} exceeded on clone, increase and rerun"
       end
       @clone = Grit::Repo.new(File.join(tmpdir, archive_repository.name))
       # add a remote for the fork_owner
-      @clone.remote_add(fork_repository.owner.login, fork_repository.rels[:git].href)
+      @clone.remote_add(fork_repository.owner.login, fork_repository.rels[:ssh].href)
       # add a remote for the departed_user
-      @clone.remote_add(client.user.login, archive_repository.rels[:git].href)# add the fork as a remote
+      #@clone.remote_add(client.user.login, archive_repository.rels[:ssh].href)# add the fork as a remote
       begin
         @clone.git.fetch({:timeout => timeout}, fork_repository.owner.login)
       rescue Git::GitTimeout
@@ -140,8 +143,8 @@ class Archiver
       clone.git.branch({}, "#{archive_branch_name}", branch_sha)
       # push the branch to the remote
       begin
-        clone.git.push({timeout: @timeout},
-                       client.user.login,
+        clone.git.push({timeout: timeout},
+                       'origin',
                        "#{archive_branch_name}:#{archive_branch_name}")
       rescue Git::TimeoutError
         raise ArchivingError, "Timeout #{@timeout} exceeded pushing branch #{archive_branch_name}"
