@@ -30,7 +30,7 @@ module GitHubAgent
     if File.exist?(cf_file)
       # TODO: YAML Parse Error?
       begin
-        config = YAML.load(cf_file)
+        config = YAML.load(open(cf_file))
         raise AgentError, "Token not found" unless not config['access_token'].nil?
         config['access_token']
       rescue SyntaxError
